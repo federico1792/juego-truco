@@ -1,0 +1,914 @@
+#coding=UTF-8
+# -*- coding: Windows-1252 -*- # para windows 10
+
+
+#---------- Imports ---------- 
+
+
+import os #clear de pantalla
+import random #mezclar mazo
+
+
+#---------- Funciones ----------
+
+
+def validar_entero(numero):
+    """
+    Funcion validar_entero, verifica que el valor ingresado sea un numero entero, en caso contrario lo vuelve a solicitar.
+    """
+    while True:
+        try:
+            numero = int(numero)
+            break
+        except ValueError:
+            print "\nERROR: No se ingreso un numero entero."
+            numero = raw_input("\nIngrese un nuevo numero: ")
+    return numero
+
+def validar_rango(inicio,fin,numero):
+    """
+    Funcion validar_rango, verifica que el valor ingresado ademas de ser un numero entero se encuentre entre los valores de inicio y fin, en caso contrario vuelve a solicitar su ingreso.
+    """
+    numero = validar_entero(numero)
+    while numero < inicio or numero > fin:
+        print "\nERROR: Rango de valor incorrecto (validos: ", str(inicio) + " al " + str(fin) + ")."
+        numero = raw_input("\nIngrese un nuevo numero: ")
+        numero = validar_entero(numero)
+    return numero
+
+def clear():
+    """
+    Funcion clear, Se encarga de limpiar la pantalla dependiendo del Sistema Operativo en el que se encuentre.
+    """
+    if os.name == "posix":
+        os.system("clear")
+    elif os.name == "nt":
+        os.system("cls")
+
+
+#---------- Objetos ----------
+
+
+########################### CARTAS ###########################
+
+class Carta(object):
+    """
+    Clase Carta, la clase compartira los atributos de valores(lista), palos(lista), especiales(lista).
+            Cada objeto tendra su atributo propio de valor(str), palo(str), especial(str).
+        Metodo __str__          Mostrara la carta(str).
+        Metodo comparar_palo    Retorna true en caso de que los palos sean iguales, sino false.
+        Metodo comparar_valor   Compara los valores de las cartas.
+        Metodo __add__          Suma el valor de dos cartas.
+    """
+    valores = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+    palos = ["Espada", "Basto", "Oro", "Copa"]
+    especiales = ["Comodin", "Comodin"]
+    def __init__(self, valor = "", palo = "", especial = ""):
+        self.valor = valor
+        self.palo = palo
+        self.especial = especial
+    def __str__(self):
+        if self.especial == "":
+            return "%2s de %s" %(self.valor , self.palo)
+        else:
+            return self.especial 
+    def comparar_palo(self, otra): #Para el truco no se usan
+        if self.palo == otra.palo:
+            return True
+        else:
+            return False
+    def comparar_valor(self, otra):
+        if self.valor == otra.valor:
+            return 0
+        elif self.valor > otra.valor:
+            return 1
+        else:
+            return -1
+    def __add__(self, otra):
+        return int(self.valor) + int(otra.valor)
+
+class CartaTruco(Carta):
+    """
+    Clase CartaTruco, Hereda de clase Carta sus metodos y sus atributos compartidos de clase.
+            Cada objeto tendra su propio atributo valor(str), palo(str), especial(str), valor_truco(int),valor_envido(int)
+        Metodo __cmp__      Compara los valor_truco de dos cartas. (para el truco)
+        Metodo __add__      Suma los valor_envido de dos cartas. (para el envido)
+    """
+    def __init__(self, valor = "", palo = "", especial = ""):
+            self.valor = valor
+            self.palo = palo
+            self.especial = especial
+            if valor == "12" or valor == "11" or valor == "10": # Valores Envido
+                self.valor_envido = 0
+            else:
+                self.valor_envido = int(valor)
+            if valor == "4": # Valores Truco desde 0 (Cuatros) el mas chico al mas alto 13 (1 de espada)
+                self.valor_truco = 0
+            if valor == "5":
+                self.valor_truco = 1
+            if valor == "6":
+                self.valor_truco = 2
+            if valor == "7" and (palo == "Copa" or palo == "Basto"):
+                self.valor_truco = 3
+            if valor == "10":
+                self.valor_truco = 4
+            if valor == "11":
+                self.valor_truco = 5
+            if valor == "12":
+                self.valor_truco = 6
+            if valor == "1" and (palo == "Copa" or palo == "Oro"):
+                self.valor_truco = 7
+            if valor == "2":
+                self.valor_truco = 8
+            if valor == "3":
+                self.valor_truco = 9
+            if valor == "7" and palo == "Oro":
+                self.valor_truco = 10
+            if valor == "7" and palo == "Espada":
+                self.valor_truco = 11
+            if valor == "1" and palo == "Basto":
+                self.valor_truco = 12
+            if valor == "1" and palo == "Espada":
+                self.valor_truco = 13
+    def __cmp__(self, otra):
+        if self.valor_truco > otra.valor_truco:
+            return 1
+        elif self.valor_truco == otra.valor_truco:
+            return 0
+        else:
+            return -1
+    def __add__(self, otra):
+        if self.palo == otra.palo:
+            return self.valor_envido + otra.valor_envido + 20
+        else:
+            if self.valor_envido >= otra.valor_envido:
+                return self.valor_envido
+            else:
+                return otra.valor_envido
+
+########################### MAZOS ###########################
+
+class MazoCincuenta(Carta):
+    """
+    Clase MazoCincuenta, Hereda de Carta sus metodos y sus atributos compartidos.
+            Cada objeto tendra su propio atributo cartas(lista de objetos Carta).
+        Metodo __str__          Muestra todas las cartas del mazo y el total de cartas todo en str.
+        Metodo mezclar_cartas   Mezcla la lista cartas del mazo.
+        Metodo dar_cartas       Retorna la ultima carta quitandola de la lista cartas.
+    """
+    def __init__(self):
+        self.cartas = []
+        for palo in self.palos:
+            for valor in self.valores:
+                    self.cartas.append(Carta(valor, palo))
+        for comodin in self.especiales:
+            self.cartas.append(Carta(especial = comodin))
+    def __str__(self):
+        muestra_mazo = ""
+        for carta in self.cartas:
+            muestra_mazo = muestra_mazo + str(carta) + "\n"
+        muestra_mazo = muestra_mazo + "\n  Total de cartas: " + str(len(self.cartas)) + "\n"
+        return muestra_mazo
+    def mezclar_cartas(self):
+        cant_cartas = len(self.cartas)
+        for pos_inicial in range(cant_cartas):
+            pos_final = random.randrange(pos_inicial, cant_cartas)
+            self.cartas[pos_inicial], self.cartas[pos_final] = self.cartas[pos_final], self.cartas[pos_inicial]
+    def dar_carta(self):
+        return self.cartas.pop()
+
+class MazoTruco(MazoCincuenta, CartaTruco):
+    """
+    Clase MazoTruco, Hereda metodos y atributos compartidos de MazoCincuenta y de CartaTruco.
+            Cada objeto tendra su propio atributo cartas (lista de objetos CartaTruco)
+    """
+    def __init__(self):
+        self.cartas = []
+        for palo in self.palos:
+            for valor in self.valores:
+                if valor != "8" and valor != "9": 
+                    self.cartas.append(CartaTruco(valor, palo))
+
+########################### JUGADOR ###########################
+
+class Jugador(object):
+    """
+    Clase Jugador, cada objeto tendra su atributo propio nombre(str), puntaje(int), mano(lista)
+        Metodo __str__              Mostrara al jugador y su puntaje.
+        Metodo tomar_carta          Agruegara a la lista mano una carta.
+        Metodo repartir_cartas      Repartira cartas del mazo entre los jugadores.
+        Metodo mostrar_mano         Mostrara las cartas del jugador con un numero como posicion.
+        Metodo jugar_carta          Retorna una carta de la mano del jugador segun la posicion mostrada.
+    """
+    def __init__(self, nombre = "", puntaje = 0):
+        self.nombre = nombre.title()
+        self.puntaje = puntaje
+        self.mano = []
+    def __str__(self):
+        return self.nombre + " tiene: " + str(self.puntaje) + " puntos."
+    def tomar_carta(self, carta): 
+        self.mano.append(carta)
+    def repartir_cartas(self, mazo, cantidad, *jugadores):
+        for carta_num in range(cantidad):
+            for jugador in jugadores:
+                if jugador != self:
+                    jugador.tomar_carta(mazo.dar_carta())
+            self.tomar_carta(mazo.dar_carta())
+    def mostrar_mano(self):
+        print "\nLa mano de", self.nombre, "es :"
+        posicion_carta = 1
+        for carta in self.mano:
+            print "\nCarta numero", posicion_carta, ":",
+            print carta
+            posicion_carta += 1
+    def jugar_carta(self, posicion_carta):
+        indice_carta = posicion_carta - 1
+        temp_carta = self.mano[indice_carta]
+        self.mano[indice_carta] = "No Disponible"
+        return temp_carta
+
+########################### JUEGO ###########################
+
+class JuegoCartas(object):
+    """
+    Clase JuegoCartas, la clase compartira los atributos jugadores(lista de objetos Jugador), mazo(objeto).
+        Cada objeto no tendra atributos propios.
+    """
+    jugadores = []
+    mazo = MazoCincuenta()
+    def crear_jugadores(self, cuantos = 1):
+        """
+        Crea Jugadores para el juego, solicitando el ingreso de sus nombres.
+        """
+        for indice_jugador in range(cuantos):
+            print "Ingrese el nombre del jugador N." + str(indice_jugador + 1) + ": ",
+            jugador_nombre = raw_input("")
+            jugador = Jugador(jugador_nombre)
+            self.jugadores.append(jugador)
+    def mostrar_puntajes(self):
+        """
+        Muestra el puntaje de la lista de jugadores.
+        """
+        print "\n\t-----.-----.-----.-----.-----"
+        for jugador in self.jugadores:
+            print "\n" , jugador
+        print "\n\t-----.-----.-----.-----.-----"
+    def repartir(self, cantidad):
+        """
+        El jugador que es mano reparte una cantidad de cartas a los Jugadores existentes en el juego.
+        """
+        self.jugadores[0].repartir_cartas(self.mazo, cantidad, *self.jugadores) # El "*" permite agregar listas como parametros
+    def muestra_mano(self, indice_jugador):
+        """
+        Muestra la mano de cartas del jugador segun su indice_jugador y luego limpia la pantalla.
+        """
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\nA continuacion se mostrara la mano del jugador: ", self.jugadores[indice_jugador].nombre
+        raw_input("\nPresione Enter para ver las cartas:")
+        print "\n\t-----.-----.-----.-----.-----"
+        self.jugadores[indice_jugador].mostrar_mano()
+        print self.canta_el_tanto(indice_jugador)
+        print "\n\t-----.-----.-----.-----.-----"
+        raw_input("\nPresione Enter para borrar las cartas de pantalla y continuar: ")
+        clear()
+
+class JuegoTruco(JuegoCartas):
+    def menu(self, indice_jugador):
+        """
+        Muestra el menu de opciones del truco para los jugadores segun el turno.
+        """
+        if self.turno_juego == 1 and self.estado_envido == "No se canto":
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            print "Opciones :\n\t 1. Jugar Carta \n\t 2. Cantos Envido.\n\t 3. Cantos Truco.\n\t 4. Mostrar Mano.\n\t 5. Mostrar Puntajes y Cartas en Mesa.\n\t 6. Irse al Mazo.\n"
+            opcion = raw_input("Opcion: ")
+            opcion = validar_rango(1, 6, opcion)
+            if opcion == 1:
+                self.juegan_carta(indice_jugador)
+            elif opcion == 2:
+                self.envido_cantos(indice_jugador)
+            elif opcion == 3:
+                self.truco_cantos(indice_jugador)
+            elif opcion == 4:
+                self.muestra_mano(indice_jugador)
+                self.mostrar_cartas_mesa()
+                self.menu(indice_jugador)
+            elif opcion == 5:
+                self.mostrar_puntajes()
+                self.mostrar_cartas_mesa()
+                self.menu(indice_jugador)
+            elif opcion == 6:
+                print "\nSeguro quiere Irse al Mazo?"
+                print "\nOpciones :\n\t 1. Si. \n\t 2. No.\n"
+                opcion = raw_input("Opcion: ")
+                opcion = validar_rango(1, 2, opcion)
+                if opcion == 1:
+                    self.se_fue_al_mazo = indice_jugador
+                    if self.se_fue_al_mazo == 0:
+                        self.truco_partida = -1
+                    elif self.se_fue_al_mazo == 1:
+                        self.truco_partida = 1
+                elif opcion == 2:
+                    self.mostrar_cartas_mesa()
+                    self.menu(indice_jugador)
+        else:
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            print "Opciones :\n\t 1. Jugar Carta \n\t 2. Cantos Truco.\n\t 3. Mostrar Mano.\n\t 4. Mostrar Puntajes y Cartas en Mesa.\n\t 5. Irse al Mazo.\n"
+            opcion = raw_input("Opcion: ")
+            opcion = validar_rango(1, 5, opcion)
+            if opcion == 1:
+                self.juegan_carta(indice_jugador)
+            elif opcion == 2:
+                self.truco_cantos(indice_jugador)
+            elif opcion == 3:
+                self.muestra_mano(indice_jugador)
+                self.mostrar_cartas_mesa()
+                self.menu(indice_jugador)
+            elif opcion == 4:
+                self.mostrar_puntajes()
+                self.mostrar_cartas_mesa()
+                self.menu(indice_jugador)
+            elif opcion == 5:
+                print "\nSeguro quiere Irse al Mazo?"
+                print "\nOpciones :\n\t 1. Si. \n\t 2. No.\n"
+                opcion = raw_input("Opcion: ")
+                opcion = validar_rango(1, 2, opcion)
+                if opcion == 1:
+                    self.se_fue_al_mazo = indice_jugador
+                    if self.se_fue_al_mazo == 0:
+                        self.truco_partida = -1
+                    elif self.se_fue_al_mazo == 1:
+                        self.truco_partida = 1
+                elif opcion == 2:
+                    self.mostrar_cartas_mesa()
+                    self.menu(indice_jugador)
+    def mostrar_cartas_mesa(self):
+        """
+        Muestra las cartas que ya han sido jugadas y se encuentran el atributo cartas_mesa(lista de objetos).
+        """
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\n\t CARTAS EN MESA:"
+        print "\n Cartas jugadas por", self.jugadores[0].nombre," :"
+        for carta in range(0, len(self.cartas_mesa), 2):
+            print "\n" + str(self.cartas_mesa[carta])
+        print "\n Cartas jugadas por", self.jugadores[1].nombre," :"
+        for carta in range(1, len(self.cartas_mesa), 2):
+            print "\n" + str(self.cartas_mesa[carta])
+        print "\n\t-----.-----.-----.-----.-----"
+    def juegan_carta(self, indice_jugador):
+        """
+        Se encarga de jugar la carta a seleccionar por el jugador(indice_jugador).
+        La carta(objeto) va de la lista mano del jugador a la lista cartas_mesa donde estan las cartas jugadas.
+        """
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\n", self.jugadores[indice_jugador].nombre , "Ingrese carta a jugar en el turno", str(self.turno_juego), ": ",
+        posicion_carta = raw_input("")
+        posicion_carta = validar_rango(1, 3, posicion_carta)
+        posicion_carta = int(posicion_carta)
+        try:
+            indice_carta = posicion_carta -1
+            if self.jugadores[indice_jugador].mano[indice_carta] == "No Disponible":
+                print "\n\t-----.-----.-----.-----.-----"
+                print "\nLa carta seleccinada no se encuentra disponible.\n\nVuelva a Intentarlo."
+                self.juegan_carta(indice_jugador)
+        except:
+            carta_jugada = self.jugadores[indice_jugador].jugar_carta(posicion_carta)
+            self.cartas_mesa.append(carta_jugada)
+    def calcular_tantos(self): 
+        """
+        Calcula el maximo del tanto de los jugadores para el envido y se los asigna al atributo del jugador.tanto
+        Se utiliza el metodo __add__ de CartaTruco.
+        """
+        for indice_jugador in range(len(self.jugadores)):
+            carta_1_y_2 = self.jugadores[indice_jugador].mano[0] + self.jugadores[indice_jugador].mano[1]
+            carta_1_y_3 = self.jugadores[indice_jugador].mano[0] + self.jugadores[indice_jugador].mano[2]
+            carta_2_y_3 = self.jugadores[indice_jugador].mano[1] + self.jugadores[indice_jugador].mano[2]
+            if carta_1_y_2 >= carta_1_y_3 and carta_1_y_2 >= carta_2_y_3:
+                temp_tanto = carta_1_y_2
+            elif carta_1_y_3 >= carta_1_y_2 and carta_1_y_3 >= carta_2_y_3:
+                temp_tanto = carta_1_y_3
+            else:
+                temp_tanto = carta_2_y_3
+            self.jugadores[indice_jugador].tanto = temp_tanto
+    def canta_el_tanto(self, indice_jugador):
+        """
+        Retorna una cadena con el nombre y el tanto del jugador(indice_jugador)
+        """
+        return "\n\tEl tanto de " + str(self.jugadores[indice_jugador].nombre) + " es : " + str(self.jugadores[indice_jugador].tanto)
+    def envido_cantos(self, indice_jugador):
+        """
+        Arbol de decisiones para los cantos posibles para el envido segun el jugador y el estado_envido.
+        """
+        if indice_jugador == 0:
+            ind_otro_jugador = 1
+        elif indice_jugador == 1:
+            ind_otro_jugador = 0
+        if self.estado_envido == "No se canto":
+            self.indice_volver_al_menu = indice_jugador
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            opcion = raw_input("Opciones :\n\t 1. Para cantar Envido.\n\t 2. Para cantar Real Envido.\n\t 3. Para cantar Falta Envido.\n Opcion: ")
+            opcion = validar_rango(1, 3, opcion)
+            if opcion == 1:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Envido!! \n"
+                self.estado_envido = "E"
+                self.envido_cantos(ind_otro_jugador)
+            if opcion == 2:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Real Envido!! \n"
+                self.estado_envido = "R"
+                self.envido_cantos(ind_otro_jugador)
+            if opcion == 3:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Falta Envido!! \n"
+                self.estado_envido = "F"
+                self.envido_cantos(ind_otro_jugador)
+        elif self.estado_envido.count("F") == 1:
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            opcion = raw_input("Opciones :\n\t 1. Quiero.\n\t 2. No Quiero.\n Opcion: ")
+            opcion = validar_rango(1, 2, opcion)
+            if opcion == 1:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero!! \n"
+                self.estado_envido = self.estado_envido + "Q"
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 2:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : No Quiero!! \n"
+                self.estado_envido = self.estado_envido + "N"
+                self.indice_ganador_envido = ind_otro_jugador
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+        elif self.estado_envido.count("E") < 2 and self.estado_envido.count("R") == 0:
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            opcion = raw_input("Opciones :\n\t 1. Quiero.\n\t 2. No Quiero.\n\t 3. Para cantar Envido.\n\t 4. Para cantar Real Envido.\n\t 5. Para cantar Falta Envido.\n Opcion: ")
+            opcion = validar_rango(1, 5, opcion)
+            if opcion == 1:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero!! \n"
+                self.estado_envido = self.estado_envido + "Q"
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 2:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : No Quiero!! \n"
+                self.estado_envido = self.estado_envido + "N"
+                self.indice_ganador_envido = ind_otro_jugador
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 3:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Envido!! \n"
+                self.estado_envido = self.estado_envido + "E"
+                self.envido_cantos(ind_otro_jugador)
+            if opcion == 4:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Real Envido!! \n"
+                self.estado_envido = self.estado_envido + "R"
+                self.envido_cantos(ind_otro_jugador)
+            if opcion == 5:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Falta Envido!! \n"
+                self.estado_envido = self.estado_envido + "F"
+                self.envido_cantos(ind_otro_jugador)
+        elif self.estado_envido.count("R") == 0:
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            opcion = raw_input("Opciones :\n\t 1. Quiero.\n\t 2. No Quiero.\n\t 3. Para cantar Real Envido.\n\t 4. Para cantar Falta Envido.\n Opcion: ")
+            opcion = validar_rango(1, 4, opcion)
+            if opcion == 1:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero!! \n"
+                self.estado_envido = self.estado_envido + "Q"
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 2:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : No Quiero!! \n"
+                self.estado_envido = self.estado_envido + "N"
+                self.indice_ganador_envido = ind_otro_jugador
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 3:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Real Envido!! \n"
+                self.estado_envido = self.estado_envido + "R"
+                self.envido_cantos(ind_otro_jugador)
+            if opcion == 4:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Falta Envido!! \n"
+                self.estado_envido = self.estado_envido + "F"
+                self.envido_cantos(ind_otro_jugador)
+        else:
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\n" + self.jugadores[indice_jugador].nombre,
+            opcion = raw_input("Opciones :\n\t 1. Quiero.\n\t 2. No Quiero.\n\t 3. Para cantar Falta Envido.\n Opcion: ")
+            opcion = validar_rango(1, 3, opcion)
+            if opcion == 1:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero!! \n"
+                self.estado_envido = self.estado_envido + "Q"
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 2:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : No Quiero!! \n"
+                self.estado_envido = self.estado_envido + "N"
+                self.indice_ganador_envido = ind_otro_jugador
+                self.envido_ronda()
+                if self.ganador == "Nadie":
+                    self.menu(self.indice_volver_al_menu)
+            if opcion == 3:
+                print "\n" + self.jugadores[indice_jugador].nombre + " : Falta Envido!! \n"
+                self.estado_envido = self.estado_envido + "F"
+                self.envido_cantos(ind_otro_jugador)
+    def envido_puntos(self):
+        """
+        Retorna los puntos del envido segun el estado_envido que se canto despues de calcularlos.
+        """
+        if self.estado_envido.count("Q") == 1:
+            if self.estado_envido.count("F") == 1:
+                if self.jugadores[0].puntaje >= self.jugadores[1].puntaje:
+                    mayor_puntaje = self.jugadores[0].puntaje
+                else:
+                    mayor_puntaje = self.jugadores[1].puntaje
+                puntos = 30 - mayor_puntaje
+            else:
+                puntos = self.estado_envido.count("E") * 2 + self.estado_envido.count("R") * 3
+        elif self.estado_envido.count("N") == 1:
+            if self.estado_envido.count("F") == 1:
+                puntos = self.estado_envido.count("E") * 2 + self.estado_envido.count("R") * 3
+                if puntos == 0:
+                    puntos = 1
+            elif self.estado_envido.count("E") == 2 and self.estado_envido.count("R") == 1:
+                puntos = 4
+            else:
+                puntos = self.estado_envido.count("E") * 1 + self.estado_envido.count("R") * 1
+        return puntos
+    def envido_ronda(self):
+        """
+        Reparte los puntos del envido al jugador correspondiente.
+        """
+        if self.indice_ganador_envido == -1:
+            mensaje = "\n\tEl Envido lo gano :"
+            if self.jugadores[0].tanto > self.jugadores[1].tanto:
+                self.indice_ganador_envido = 0
+            elif self.jugadores[0].tanto == self.jugadores[1].tanto:
+                self.indice_ganador_envido = 0
+                mensaje = "\n\tEl Envido lo gano por ser mano :"
+            else:
+                self.indice_ganador_envido = 1
+            print "\n\t-----.-----.-----.-----.-----"
+            print self.canta_el_tanto(0)
+            print self.canta_el_tanto(1)
+            print mensaje, self.jugadores[self.indice_ganador_envido].nombre
+        else:
+            "\n\t-----.-----.-----.-----.-----"
+            print "\n\tEl jugador " , self.jugadores[self.indice_ganador_envido].nombre, "se lleva puntos por el tanto no querido."
+        print "\n\t-----.-----.-----.-----.-----"
+        puntos = self.envido_puntos()
+        self.jugadores[self.indice_ganador_envido].puntaje += puntos
+        print "\n\tGano un total de ", str(puntos), "puntos."
+        print "\n\t-----.-----.-----.-----.-----"
+        self.mostrar_puntajes()
+        if self.jugadores[self.indice_ganador_envido].puntaje >= 30:
+            self.ganador = self.indice_ganador_envido
+    def truco_cantos(self, indice_jugador): ##########################
+        """
+        Arbol de decisiones para los cantos posibles para el truco segun el jugador y el estado_truco.
+        """
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\nLo ultimo que se canto es: ", self.estado_truco
+        try:
+            print "\nEl quiero lo tiene el jugador: ", self.jugadores[self.quien_tiene_el_quiero].nombre
+        except:
+            print self.quien_tiene_el_quiero
+        print "\n\t-----.-----.-----.-----.-----"
+        if self.quien_tiene_el_quiero == "Nadie" or self.quien_tiene_el_quiero == indice_jugador:
+            if indice_jugador == 0:
+                ind_otro_jugador = 1
+            elif indice_jugador == 1:
+                ind_otro_jugador = 0
+            if self.estado_truco == "No se canto":
+                print "\n\t-----.-----.-----.-----.-----"
+                print "\n" + self.jugadores[indice_jugador].nombre,
+                opcion = raw_input("Opciones :\n\t 1. Para cantar Truco\n\t 2. Para volver atras.\n Opcion: ")
+                opcion = validar_rango(1, 2, opcion)
+                if opcion == 1:
+                    print "\n" + self.jugadores[indice_jugador].nombre + " : Truco!! \n"
+                    print "\t-----.-----.-----.-----.-----\n"
+                    print self.jugadores[ind_otro_jugador].nombre,
+                    opcion = raw_input("Opciones :\n\t 1. Quiero\n\t 2. No Quiero.\n\t 3. Quiero ReTruco!!\n Opcion: ")
+                    opcion = validar_rango(1, 3, opcion)
+                    if opcion == 1:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + ": Quiero."
+                        self.estado_truco = "Truco"
+                        self.quien_tiene_el_quiero = ind_otro_jugador
+                        print "\n\t-----.-----.-----.-----.-----"
+                        self.menu(indice_jugador)
+                    elif opcion == 2:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + ": No Quiero."
+                        self.estado_truco = "No Quiero"
+                        self.se_fue_al_mazo = ind_otro_jugador
+                        if self.se_fue_al_mazo == 0:
+                            self.truco_partida = -1
+                        elif self.se_fue_al_mazo == 1:
+                            self.truco_partida = 1
+                    elif opcion == 3:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + " : Quiero ReTruco!! \n"
+                        print "\t-----.-----.-----.-----.-----\n"
+                        print self.jugadores[indice_jugador].nombre,
+                        opcion = raw_input("Opciones :\n\t 1. Quiero\n\t 2. No Quiero.\n\t 3. Quiero Vale Cuatro!!!\n Opcion: ")
+                        opcion = validar_rango(1, 3, opcion)
+                        if opcion == 1:
+                            print "\n" + self.jugadores[indice_jugador].nombre + ": Quiero."
+                            self.estado_truco = "ReTruco"
+                            self.quien_tiene_el_quiero = indice_jugador
+                            print "\n\t-----.-----.-----.-----.-----"
+                            self.menu(indice_jugador)
+                        elif opcion == 2:
+                            print "\n" + self.jugadores[indice_jugador].nombre + ": No Quiero."
+                            self.estado_truco = "Truco"
+                            self.se_fue_al_mazo = indice_jugador
+                            if self.se_fue_al_mazo == 0:
+                                self.truco_partida = -1
+                            elif self.se_fue_al_mazo == 1:
+                                self.truco_partida = 1
+                        elif opcion == 3:
+                            print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero Vale Cuatro!!! \n"
+                            print "\t-----.-----.-----.-----.-----\n"
+                            print self.jugadores[ind_otro_jugador].nombre,
+                            opcion = raw_input("Opciones :\n\t 1. Quiero\n\t 2. No Quiero.\n Opcion: ")
+                            opcion = validar_rango(1, 2, opcion)
+                            if opcion == 1:
+                                print "\n" + self.jugadores[ind_otro_jugador].nombre + ": Quiero."
+                                self.estado_truco = "Vale Cuatro"
+                                self.quien_tiene_el_quiero = ind_otro_jugador
+                                print "\n\t-----.-----.-----.-----.-----"
+                                self.menu(indice_jugador)
+                            elif opcion == 2:
+                                print "\n" + self.jugadores[ind_otro_jugador].nombre + ": No Quiero."
+                                self.estado_truco = "ReTruco"
+                                self.se_fue_al_mazo = ind_otro_jugador
+                                if self.se_fue_al_mazo == 0:
+                                    self.truco_partida = -1
+                                elif self.se_fue_al_mazo == 1:
+                                    self.truco_partida = 1
+                elif opcion == 2:
+                    print "\n\t-----.-----.-----.-----.-----"
+                    self.menu(indice_jugador)
+            elif self.estado_truco == "Truco":
+                print "\n\t-----.-----.-----.-----.-----"
+                print "\n" + self.jugadores[indice_jugador].nombre,
+                opcion = raw_input("Opciones :\n\t 1. Para cantar Quiero ReTruco\n\t 2. Para volver atras.\n Opcion: ")
+                opcion = validar_rango(1, 2, opcion)
+                if opcion == 1:
+                    print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero ReTruco!! \n"
+                    print "\t-----.-----.-----.-----.-----\n"
+                    print self.jugadores[ind_otro_jugador].nombre,
+                    opcion = raw_input("Opciones :\n\t 1. Quiero\n\t 2. No Quiero.\n\t 3. Quiero Vale Cuatro!!!\n Opcion: ")
+                    opcion = validar_rango(1, 3, opcion)
+                    if opcion == 1:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + ": Quiero."
+                        self.estado_truco = "ReTruco"
+                        self.quien_tiene_el_quiero = ind_otro_jugador
+                        print "\n\t-----.-----.-----.-----.-----"
+                        self.menu(indice_jugador)
+                    elif opcion == 2:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + ": No Quiero."
+                        self.estado_truco = "Truco"
+                        self.se_fue_al_mazo = ind_otro_jugador
+                        if self.se_fue_al_mazo == 0:
+                            self.truco_partida = -1
+                        elif self.se_fue_al_mazo == 1:
+                            self.truco_partida = 1
+                    elif opcion == 3:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + " : Quiero Vale Cuatro!!! \n"
+                        print "\t-----.-----.-----.-----.-----\n"
+                        print self.jugadores[indice_jugador].nombre,
+                        opcion = raw_input("Opciones :\n\t 1. Quiero\n\t 2. No Quiero.\n Opcion: ")
+                        opcion = validar_rango(1, 2, opcion)
+                        if opcion == 1:
+                            print "\n" + self.jugadores[indice_jugador].nombre + ": Quiero."
+                            self.estado_truco = "Vale Cuatro"
+                            self.quien_tiene_el_quiero = indice_jugador
+                            print "\n\t-----.-----.-----.-----.-----"
+                            self.menu(indice_jugador)
+                        elif opcion == 2:
+                            print "\n" + self.jugadores[indice_jugador].nombre + ": No Quiero."
+                            self.estado_truco = "ReTruco"
+                            self.se_fue_al_mazo = indice_jugador
+                            if self.se_fue_al_mazo == 0:
+                                self.truco_partida = -1
+                            elif self.se_fue_al_mazo == 1:
+                                self.truco_partida = 1
+                elif opcion == 2:
+                    print "\n\t-----.-----.-----.-----.-----"
+                    self.menu(indice_jugador)
+            elif self.estado_truco == "ReTruco":
+                print "\n\t-----.-----.-----.-----.-----"
+                print "\n" + self.jugadores[indice_jugador].nombre,
+                opcion = raw_input("Opciones :\n\t 1. Para cantar Quiero Vale Cuatro!!!\n\t 2. Para volver atras.\n Opcion: ")
+                opcion = validar_rango(1, 2, opcion)
+                if opcion == 1:
+                    print "\n" + self.jugadores[indice_jugador].nombre + " : Quiero Vale Cuatro!!! \n"
+                    print "\t-----.-----.-----.-----.-----\n"
+                    print self.jugadores[ind_otro_jugador].nombre,
+                    opcion = raw_input("Opciones :\n\t 1. Quiero\n\t 2. No Quiero.\n Opcion: ")
+                    opcion = validar_rango(1, 2, opcion)
+                    if opcion == 1:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + ": Quiero."
+                        self.estado_truco = "Vale Cuatro"
+                        self.quien_tiene_el_quiero = ind_otro_jugador
+                        print "\n\t-----.-----.-----.-----.-----"
+                        self.menu(indice_jugador)
+                    elif opcion == 2:
+                        print "\n" + self.jugadores[ind_otro_jugador].nombre + ": No Quiero."
+                        self.estado_truco = "ReTruco"
+                        self.se_fue_al_mazo = ind_otro_jugador
+                        if self.se_fue_al_mazo == 0:
+                            self.truco_partida = -1
+                        elif self.se_fue_al_mazo == 1:
+                            self.truco_partida = 1
+                elif opcion == 2:
+                    print "\n\t-----.-----.-----.-----.-----"
+                    self.menu(indice_jugador)
+            elif self.estado_truco == "Vale Cuatro":
+                print "\n No se puede cantar mas que Vale Cuatro."
+                print "\n\t-----.-----.-----.-----.-----"
+                self.menu(indice_jugador)
+        else:
+            print "\n El Quiero lo tiene el otro jugador.(", self.jugadores[self.quien_tiene_el_quiero].nombre, ")"
+            print "\n\t-----.-----.-----.-----.-----"
+            self.menu(indice_jugador)
+    def truco_turno(self, carta_1, carta_2):
+        """
+        Compara las cartas jugadas en el turno.
+        Retorna 1(uno) gana jugador que es mano, -1(menos uno) gana segundo jugador, 0(cero) empardan.
+        Tambien muestra al ganador del turno por mensaje.
+        Usa el metodo __cmp__ de CartaTruco.
+        """
+        if self.cartas_mesa[carta_1] > self.cartas_mesa[carta_2]:
+            jugador = " entonces el turno lo gano " + self.jugadores[0].nombre
+            mensaje = " es mayor que "
+            turno_truco = 1
+        elif self.cartas_mesa[carta_1] < self.cartas_mesa[carta_2]:
+            jugador = " entonces el turno lo gano " + self.jugadores[1].nombre
+            mensaje = " es menor que "
+            turno_truco = -1
+        else:
+            jugador = " entonces el turno quedo empatado"
+            mensaje = " es igual que "
+            turno_truco = 0
+        print "\n" + str(self.cartas_mesa[carta_1]) + mensaje + str(self.cartas_mesa[carta_2]) + jugador
+        print "\n\t-----.-----.-----.-----.-----"
+        return turno_truco
+    def truco_ultimo_turno(self, t1, t2, t3): #t1 t2 t3 reprensentan los turno_truco_1, turno_truco_2 y turno_truco_3.
+        """
+        Comparando los turnos jugados y decide quien gano el truco en el ultimo turno.
+        Retorna 1(uno) gana jugador que es mano, -1(menos uno) gana segundo jugador, 0(cero) empataron.
+        """
+        if (t1 == 1 and t2 == -1 and t3 == 1) or (t1 == -1 and t2 == 1 and t3 == 1) or (t1 == 0 and t2 == 0 and t3 == 1) or (t1 == 1 and t2 == -1 and t3 == 0) and (t1 == 0 and t2 == 0 and t3 == 0):
+            temp_truco_partida = 1
+        else:
+            temp_truco_partida = -1
+        return temp_truco_partida
+    def truco_puntos(self):
+        """
+        Se encarga de repartir los puntos del truco segun el estado_truco al jugador ganador(truco_partida).
+        """
+        if self.se_fue_al_mazo != "Nadie":
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[self.se_fue_al_mazo].nombre + " se fue al mazo."
+        if self.truco_partida == 1: #Gano Jugador mano
+            print "\nLa ronda de truco la gano el jugador " + self.jugadores[0].nombre
+            indice_jugador = 0
+        elif self.truco_partida == -1: #Gano Jugador que no es mano
+            print "\nLa ronda de truco la gano el jugador " + self.jugadores[1].nombre
+            indice_jugador = 1
+        if self.estado_envido == "No se canto" and self.turno_juego == 1 and self.se_fue_al_mazo == 0 :
+            self.jugadores[indice_jugador].puntaje += 2
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[indice_jugador].nombre + " Gano 2 puntos por retirarse el que es mano sin dejar cantar el Envido."
+            print "\n\t-----.-----.-----.-----.-----"
+        elif self.estado_truco == "No Quiero":
+            self.jugadores[indice_jugador].puntaje += 1
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[indice_jugador].nombre + " Gano 1 punto del Truco no querido."
+            print "\n\t-----.-----.-----.-----.-----"
+        elif self.estado_truco == "No se canto":
+            self.jugadores[indice_jugador].puntaje += 1
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[indice_jugador].nombre + " Gano 1 punto del Truco no cantado."
+            print "\n\t-----.-----.-----.-----.-----"
+        elif self.estado_truco == "Truco":
+            self.jugadores[indice_jugador].puntaje += 2
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[indice_jugador].nombre + " Gano 2 puntos del Truco."
+            print "\n\t-----.-----.-----.-----.-----"
+        elif self.estado_truco == "ReTruco":
+            self.jugadores[indice_jugador].puntaje += 3
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[indice_jugador].nombre + " Gano 3 puntos del ReTruco."
+            print "\n\t-----.-----.-----.-----.-----"
+        elif self.estado_truco == "Vale Cuatro":
+            self.jugadores[indice_jugador].puntaje += 4
+            print "\n\t-----.-----.-----.-----.-----"
+            print "\nEl jugador " + self.jugadores[indice_jugador].nombre + " Gano 4 puntos del Vale Cuatro."
+            print "\n\t-----.-----.-----.-----.-----"
+        if self.jugadores[indice_jugador].puntaje >= 30:
+            self.ganador = indice_jugador
+    def mostrar_ganador(self):
+        """
+        Muestra al jugador ganador y sus puntos.
+        """
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\n\tYa hay un ganador."
+        print  "\nEl jugador ganador es ", self.jugadores[self.ganador].nombre ,"con :" , str(self.jugadores[self.ganador].puntaje) ," puntos."
+        print "\n\t\tGAME OVER!"
+        print "\n\t-----.-----.-----.-----.-----"
+        print "\n\t-----.-----.-----.-----.-----"
+
+#------ Ambiente de PRUEBA -------
+
+    cartas_mesa = [] #Lista de cartas jugadas.
+    turno_juego = 1 #Para organizar las cartas jugadas y los cantos.
+    se_fue_al_mazo = "Nadie" #Para saber si algun jugador se retiro de la mano de Truco.
+    estado_envido = "No se canto" #Se canto o no, y que se puede cantar, determinar los puntos del envido.
+    indice_volver_al_menu = -1 #Se usara para saber que jugador debe volver al menu despues de los cantos del envido.
+    indice_ganador_envido = -1 #El -1 se usa como bandera para saber que nadie gano el envido.
+    estado_truco = "No se canto" #Idem estado_envido pero para el Truco.
+    quien_tiene_el_quiero = "Nadie" #Para saber quien puede seguir cantando el Truco.
+    truco_partida = 2 #El 2 se usa como bandera para saber que nadie gano la mano de Truco.
+    ganador = "Nadie" #Se usa para saber que no hay ganador del juego.
+
+
+    def __init__(self):
+        ########################### Creando los Jugadores
+        self.crear_jugadores(2)
+        
+        ########################### Jugando al truco.
+        while self.ganador == "Nadie":
+            ########################### Creando el MazoTruco
+            self.mazo = MazoTruco()
+            #print self.mazo
+            self.mazo.mezclar_cartas()
+            #print self.mazo
+            ########################### Repartiendo Cartas
+            self.repartir(3)
+            #print self.mazo
+            ########################### Calculando los tantos para el envido de cada jugador.
+            self.calcular_tantos()
+            ########################### Jugando una mano de Truco.
+            print "\nA continuacion se mostraran las cartas que le corresponden a cada jugador.\n\t(Memorizar numero de carta)"
+            for indice_jugador in range(len(self.jugadores)): # Muestra mano de cartas de los jugadores
+                self.muestra_mano(indice_jugador)
+            while self.turno_juego < 4 and self.truco_partida == 2 and self.ganador == "Nadie" and self.se_fue_al_mazo == "Nadie":
+                indice_jugador = 0
+                while indice_jugador < len(self.jugadores) and self.se_fue_al_mazo == "Nadie" and self.ganador == "Nadie":
+                    self.menu(indice_jugador) # menu() Linea 276
+                    if self.se_fue_al_mazo == "Nadie" and self.ganador == "Nadie":
+                        self.mostrar_cartas_mesa() # mostrar_cartas_mesa() Linea 344
+                    indice_jugador += 1
+                if self.se_fue_al_mazo == "Nadie" and self.ganador == "Nadie":
+                    turno_truco_1 = self.truco_turno(0, 1) # truco_turno() Linea 738
+                    if self.turno_juego >=2:
+                        turno_truco_2 = self.truco_turno(2, 3) # truco_turno() Linea 738
+                        if (turno_truco_1 == 1 and turno_truco_2 == 1) or (turno_truco_1 == 0 and turno_truco_2 == 1) or (turno_truco_1 == 1 and turno_truco_2 == 0):
+                            self.truco_partida = 1
+                        elif (turno_truco_1 == -1 and turno_truco_2 == -1) or (turno_truco_1 == 0 and turno_truco_2 == -1) or (turno_truco_1 == -1 and turno_truco_2 == 0):
+                            self.truco_partida = -1
+                        if self.turno_juego >=3:
+                            turno_truco_3 = self.truco_turno(4, 5) # truco_turno() Linea 738
+                            self.truco_partida = self.truco_ultimo_turno(turno_truco_1, turno_truco_2, turno_truco_3) #truco_ultimo_tunro() Linea 760
+                    self.turno_juego += 1
+
+            ########################### Repartiendo puntos del Truco
+
+            if self.ganador != "Nadie":
+                self.mostrar_ganador() #mostrar_ganador() Linea 815
+            else:
+                self.truco_puntos() #truco_puntos() Linea 770
+                if self.ganador != "Nadie":
+                    self.mostrar_puntajes() #mostrar_puntajes() Linea 248
+                    self.mostrar_ganador() #mostrar_ganador() Linea 815
+                else:
+                    self.mostrar_puntajes() #mostrar_puntajes() Linea 248
+                    print "\n\t\t----COMENZARA LA SIGUIENTE RONDA----"
+                    print "\nPresione Enter para limpiar la pantalla y continuar con la siguiente ronda: "
+                    
+                    ################## Volver variables al valor inicial para jugar proxima mano de truco.
+                    
+                    self.estado_envido = "No se canto"
+                    self.estado_truco = "No se canto"
+                    self.quien_tiene_el_quiero = "Nadie"
+                    del self.cartas_mesa[:]
+                    self.turno_juego = 1
+                    self.se_fue_al_mazo = "Nadie"
+                    self.truco_partida = 2
+                    self.indice_volver_al_menu = -1
+                    self.indice_ganador_envido = -1
+                    for indice_jugador in range(len(self.jugadores)):
+                        del self.jugadores[indice_jugador].mano[:]
+                    self.jugadores.insert(0, self.jugadores.pop()) #Intercambia jugador que es mano. insert() y pop() son metodos de listas.
+            raw_input("")
+            clear()
+
+
+
+truco = JuegoTruco()
